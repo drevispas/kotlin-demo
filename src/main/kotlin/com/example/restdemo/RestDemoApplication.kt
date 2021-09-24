@@ -2,10 +2,15 @@ package com.example.restdemo
 
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
+import org.springframework.data.repository.CrudRepository
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.stereotype.Component
 import org.springframework.web.bind.annotation.*
 import java.util.*
+import javax.annotation.PostConstruct
+import javax.persistence.Entity
+import javax.persistence.Id
 
 @SpringBootApplication
 class RestDemoApplication
@@ -14,18 +19,62 @@ fun main(args: Array<String>) {
     runApplication<RestDemoApplication>(*args)
 }
 
-/* Domain class */
-class Coffee(val id: String = UUID.randomUUID().toString(), var name: String)
+/* Domain/Entity class */
+// `val/var` after class name become class properties and constructor arguments at once.
+//class Coffee(val id: String = UUID.randomUUID().toString(), var name: String)
+//@Entity
+//class Coffee(){
+//    @Id
+//    var id=UUID.randomUUID().toString()
+//    var name: String=""
+//    constructor(name:String) : this() {
+//        this.name = name
+//    }
+//}
+@Entity
+// No error if every argument has a defult value.
+class Coffee(@Id val id: String = UUID.randomUUID().toString(), val name:String="") {
+}
 
 /* Controller */
 @RestController
 @RequestMapping("/coffees")
-class ApiController {
-    private val coffees:MutableList<Coffee> = ArrayList()
+class ApiController(val coffeeRepository: CoffeeRepository) {
+    @GetMapping
+    fun getCoffees() = coffeeRepository.findAll()
 
-    init {
-        coffees.addAll(
-            mutableListOf(
+    @GetMapping("/{id}")
+    // TODO: return default value if empty Optional
+    fun getCoffeeById(@PathVariable id: String) = coffeeRepository.findById(id)
+
+    @PostMapping
+    fun postCoffee(@RequestBody coffee: Coffee) = coffeeRepository.save(coffee)
+
+    @PutMapping("/{id}")
+    fun putCoffee(@PathVariable id: String, @RequestBody coffee: Coffee) =
+        coffeeRepository.existsById(id).let {
+            coffeeRepository.save(coffee)
+            if(it) {
+                ResponseEntity(coffee,HttpStatus.OK)
+            } else {
+                ResponseEntity(coffee,HttpStatus.CREATED)
+            }
+        }
+
+    @DeleteMapping("/{id}")
+    fun deleteCoffee(@PathVariable id: String) = coffeeRepository.deleteById(id)
+}
+
+// extends => :
+// {} => (omit)
+interface CoffeeRepository : CrudRepository<Coffee, String>
+
+@Component
+class DataLoader(val coffeeRepository: CoffeeRepository){
+    @PostConstruct
+    private fun loadData() {
+        coffeeRepository.saveAll(
+            listOf(
                 Coffee(name = "Cafe Cereza"),
                 Coffee(name = "Cafe Ganador"),
                 Coffee(name = "Cafe Lareno"),
@@ -33,26 +82,4 @@ class ApiController {
             )
         )
     }
-
-    @GetMapping
-    fun getCoffees(): Iterable<Coffee> = coffees
-
-    @GetMapping("/{id}")
-    fun getCoffeeById(@PathVariable id: String) = coffees.find { it.id == id } ?: "No such coffee found"
-
-    @PostMapping
-    fun postCoffee(@RequestBody coffee: Coffee) = coffees.let {
-        it.add(coffee)
-        coffee
-    }
-
-    @PutMapping("/{id}")
-    fun putCoffee(@PathVariable id: String, @RequestBody coffee: Coffee) =
-        coffees.find { it.id == id }?.let {
-            it.name = coffee.name
-            ResponseEntity(coffee, HttpStatus.OK)
-        } ?: ResponseEntity(postCoffee(coffee), HttpStatus.CREATED)
-
-    @DeleteMapping("/{id}")
-    fun deleteCoffee(@PathVariable id: String) = coffees.removeIf { it.id == id }
 }
