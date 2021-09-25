@@ -1,7 +1,10 @@
 package com.example.restdemo
 
 import org.springframework.boot.autoconfigure.SpringBootApplication
+import org.springframework.boot.context.properties.ConfigurationProperties
+import org.springframework.boot.context.properties.ConfigurationPropertiesScan
 import org.springframework.boot.runApplication
+import org.springframework.context.annotation.Bean
 import org.springframework.data.repository.CrudRepository
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -13,7 +16,14 @@ import javax.persistence.Entity
 import javax.persistence.Id
 
 @SpringBootApplication
-class RestDemoApplication
+@ConfigurationPropertiesScan // to enable @ConfigurationProperties
+class RestDemoApplication{
+    // Simulate 3rd party class that would be a placeholder for application.properties
+    // instance 생성하면서 application.properties에 대응값들로 constructor 호출
+    @Bean
+    @ConfigurationProperties(prefix = "thirdparty")
+    fun createThirdParty() = ThirdParty("","")
+}
 
 fun main(args: Array<String>) {
     runApplication<RestDemoApplication>(*args)
@@ -33,7 +43,7 @@ fun main(args: Array<String>) {
 //}
 @Entity
 // No error if every argument has a defult value.
-class Coffee(@Id val id: String = UUID.randomUUID().toString(), val name:String="") {
+class Coffee(@Id val id: String = UUID.randomUUID().toString(), var name: String = "") {
 }
 
 /* Controller */
@@ -54,10 +64,10 @@ class ApiController(val coffeeRepository: CoffeeRepository) {
     fun putCoffee(@PathVariable id: String, @RequestBody coffee: Coffee) =
         coffeeRepository.existsById(id).let {
             coffeeRepository.save(coffee)
-            if(it) {
-                ResponseEntity(coffee,HttpStatus.OK)
+            if (it) {
+                ResponseEntity(coffee, HttpStatus.OK)
             } else {
-                ResponseEntity(coffee,HttpStatus.CREATED)
+                ResponseEntity(coffee, HttpStatus.CREATED)
             }
         }
 
@@ -70,7 +80,7 @@ class ApiController(val coffeeRepository: CoffeeRepository) {
 interface CoffeeRepository : CrudRepository<Coffee, String>
 
 @Component
-class DataLoader(val coffeeRepository: CoffeeRepository){
+class DataLoader(val coffeeRepository: CoffeeRepository) {
     @PostConstruct
     private fun loadData() {
         coffeeRepository.saveAll(
@@ -83,3 +93,26 @@ class DataLoader(val coffeeRepository: CoffeeRepository){
         )
     }
 }
+
+@RestController
+@RequestMapping("/greeting")
+class AppPropsController(val greeting: Greeting) {
+    @GetMapping
+    fun getValue() = greeting
+}
+
+// Read application.properties and fill in the class properties.
+// application.properties가 Greeting bean 생성할 때 constructor args로 주입되도록 한다.
+@ConfigurationProperties(prefix = "greeting")
+// We need setters to inject values from application.properties.
+class Greeting(var name: String = "", var coffee: Coffee = Coffee(name = ""))
+
+@RestController
+@RequestMapping("/thirdparty")
+class ThirdPropsController(val thirdParty: ThirdParty) {
+    @GetMapping
+    fun getThirdValue() = thirdParty
+}
+
+class ThirdParty(var id: String, var desc: String)
+
