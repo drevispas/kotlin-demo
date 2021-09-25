@@ -22,12 +22,16 @@ class RestDemoApplication{
     // instance 생성하면서 application.properties에 대응값들로 constructor 호출
     @Bean
     @ConfigurationProperties(prefix = "thirdparty")
-    fun createThirdParty() = ThirdParty("","")
+    fun createThirdParty() = ThirdParty()
 }
 
 fun main(args: Array<String>) {
     runApplication<RestDemoApplication>(*args)
 }
+
+// extends => :
+// {} => (omit)
+interface CoffeeRepository : CrudRepository<Coffee, String>
 
 /* Domain/Entity class */
 // `val/var` after class name become class properties and constructor arguments at once.
@@ -75,10 +79,6 @@ class ApiController(val coffeeRepository: CoffeeRepository) {
     fun deleteCoffee(@PathVariable id: String) = coffeeRepository.deleteById(id)
 }
 
-// extends => :
-// {} => (omit)
-interface CoffeeRepository : CrudRepository<Coffee, String>
-
 @Component
 class DataLoader(val coffeeRepository: CoffeeRepository) {
     @PostConstruct
@@ -109,10 +109,7 @@ class Greeting(var name: String = "", var coffee: Coffee = Coffee(name = ""))
 
 @RestController
 @RequestMapping("/thirdparty")
-class ThirdPropsController(val thirdParty: ThirdParty) {
-    @GetMapping
-    fun getThirdValue() = thirdParty
-}
+class ThirdPropsController(@get:GetMapping val thirdParty: ThirdParty)
 
-class ThirdParty(var id: String, var desc: String)
+class ThirdParty(var id: String="", var desc: String="")
 
